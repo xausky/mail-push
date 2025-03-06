@@ -13,10 +13,6 @@ RUN go mod download
 # 复制源代码
 COPY . .
 
-# 设置构建参数
-ARG TARGETARCH
-ARG TARGETOS
-
 # 构建应用
 RUN CGO_ENABLED=0 go build -o mail-push
 
