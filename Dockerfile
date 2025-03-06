@@ -1,5 +1,5 @@
 # 使用官方 Go 镜像作为构建环境
-FROM --platform=$BUILDPLATFORM golang:1.21-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 # 设置工作目录
 WORKDIR /app
@@ -18,10 +18,10 @@ ARG TARGETARCH
 ARG TARGETOS
 
 # 构建应用
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o mail-push
+RUN CGO_ENABLED=0 go build -o mail-push
 
 # 使用轻量级的 alpine 作为运行环境
-FROM --platform=$TARGETPLATFORM alpine:latest
+FROM alpine:latest
 
 # 安装 ca-certificates，用于 SMTP SSL 连接
 RUN apk --no-cache add ca-certificates

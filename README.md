@@ -22,7 +22,7 @@ Mail Push 是一个基于 SMTP 协议的消息推送服务，通过发送邮件�
 
 ```bash
 # 文本消息 curl 示例
-curl -X POST "${window.location.origin}/send/YOUR-BASE64-DATA" \
+curl -X POST "https://you.deploy.domain/send/YOUR-BASE64-DATA" \
      -H "Content-Type: application/json" \
      -d '{
     "msgtype": "text",
