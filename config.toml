@@ -1,0 +1,9 @@
+[providers.163]
+email_suffix = "@163.com"
+smtp_host = "smtp.163.com"
+smtp_port = 465
+
+[providers.qq]
+email_suffix = "@qq.com"
+smtp_host = "smtp.qq.com"
+smtp_port = 465

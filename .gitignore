@@ -1,0 +1,51 @@
+# 编译生成的二进制文件
+/mail-push
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试二进制文件
+*.test
+
+# 覆盖率测试生成的文件
+*.out
+coverage.html
+
+# IDE 相关文件
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 依赖目录
+/vendor/
+
+# 日志文件
+*.log
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 操作系统生成的文件
+.DS_Store
+Thumbs.db
+
+# 临时文件
+tmp/
+temp/
+
+# 配置文件（如果有敏感信息）
+# config.toml  # 如果配置文件包含敏感信息，取消注释此行
+
+# 构建输出目录
+/dist/
+/build/
+
+# 调试文件
+__debug_bin
+debug.test 

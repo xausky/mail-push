@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Mail Push 链接生成器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        label {
+            min-width: 100px;
+            text-align: right;
+            color: #333;
+            font-size: 14px;
+        }
+        input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+        }
+        input::placeholder {
+            color: #999;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: none;
+            background-color: #f8f9fa;
+        }
+        .docs {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .docs pre {
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .button-container {
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mail Push</h1>
+    <div class="form-group">
+        <label for="provider">邮件服务商:</label>
+        <input type="text" id="provider" placeholder="例如: 163,qq">
+    </div>
+    <div class="form-group">
+        <label for="mail_user">用户名:</label>
+        <input type="text" id="mail_user" name="mail_user" autocomplete="off" placeholder="输入邮箱用户名（不含@后缀）">
+    </div>
+    <div class="form-group">
+        <label for="mail_token">密码或授权码:</label>
+        <input type="text" id="mail_token" name="mail_token" autocomplete="off" placeholder="输入邮箱密码或授权码（明文显示）">
+    </div>
+    <div class="button-container">
+        <button onclick="generateLink()">生成链接</button>
+    </div>
+    <div id="result"></div>
+
+    <div class="docs">
+        <h2>项目简介</h2>
+        <p>Mail Push 是一个基于 SMTP 协议的消息推送服务，通过发送邮件到用户自己的邮箱来实现消息推送功能。</p>
+        
+        <h3>工作原理</h3>
+        <ul>
+            <li>使用 SMTP 协议发送邮件到指定邮箱</li>
+            <li>可通过各种邮件客户端接收提醒</li>
+            <li>特别地，使用 QQ 邮箱可以获得更好的体验：
+                <ul>
+                    <li>启用微信的 QQ 邮箱提醒功能，获得更实时的通知</li>
+                    <li>直接在微信中查看邮件内容</li>
+                    <li>开启方式：微信->我->设置->通用->辅助功能->QQ邮箱提醒</li>
+                </ul>
+            </li>
+        </ul>
+
+        <h2>使用说明</h2>
+        <p>生成的链接完全兼容企业微信群机器人的 webhook 格式，支持以下消息类型：</p>
+        <ul>
+            <li>文本消息 (text)</li>
+            <li>markdown消息 (markdown)</li>
+            <li>图片消息 (image)</li>
+            <li>图文消息 (news)</li>
+        </ul>
+        
+        <h3>请求示例：</h3>
+        <pre>
+# 文本消息 curl 示例
+curl -X POST "${window.location.origin}/send/YOUR-BASE64-DATA" \
+     -H "Content-Type: application/json" \
+     -d '{
+    "msgtype": "text",
+    "text": {
+        "content": "这是一条文本消息"
+    }
+}'
+        </pre>
+        
+        <p>详细的消息格式说明请参考：<a href="https://developer.work.weixin.qq.com/document/path/91770" target="_blank">企业微信群机器人配置说明</a></p>
+        
+        <h2>安全说明</h2>
+        <ul>
+            <li>所有认证信息使用 Base64 编码存储在 URL 中</li>
+            <li>服务器不存储任何用户信息</li>
+            <li>建议自行部署服务以确保信息安全</li>
+        </ul>
+        
+        <h2>开源地址</h2>
+        <p>本项目已在 GitHub 开源：<a href="https://github.com/xausky/mail-push" target="_blank">github.com/xausky/mail-push</a> 因为有可能被墙被D被删，所以有高可用或者高隐私需求的可以自行搭建。</p>
+    </div>
+
+    <script>
+        function copyToClipboard(text, button) {
+            const originalText = button.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                button.textContent = '已复制！';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('复制失败:', err);
+                button.textContent = '复制失败';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                }, 2000);
+            });
+        }
+
+        function generateLink() {
+            const provider = document.getElementById('provider').value;
+            const username = document.getElementById('mail_user').value;
+            const password = document.getElementById('mail_token').value;
+
+            if (!provider || !username || !password) {
+                alert('请填写所有字段！');
+                return;
+            }
+
+            const data = btoa(`${provider}|${username}|${password}`);
+            const url = `${window.location.origin}/send/${data}`;
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `
+                <h3>生成的 Webhook 地址:</h3>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <p style="word-break: break-all; margin: 0; flex-grow: 1;">${url}</p>
+                    <button onclick="copyToClipboard('${url}', this)" style="flex-shrink: 0;">复制</button>
+                </div>
+                <p>此地址可直接配置到支持企业微信群机器人的 Webhook 地址中使用。</p>
+            `;
+        }
+    </script>
+</body>
+</html> 
