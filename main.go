@@ -20,7 +20,7 @@ func main() {
 	app := fiber.New()
 
 	// 静态文件服务
-	app.Static("/", ".svelte-kit/output/client")
+	app.Static("/", "./build")
 
 	// 设置路由
 	app.Post("/send/:data", server.MailHandler(cfg))
