@@ -49,3 +49,5 @@ temp/
 # 调试文件
 __debug_bin
 debug.test 
+/node_modules
+/static/build

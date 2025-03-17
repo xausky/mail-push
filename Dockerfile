@@ -1,5 +1,23 @@
-# 使用官方 Go 镜像作为构建环境
-FROM golang:alpine AS builder
+# 前端构建阶段
+FROM node:18-alpine AS frontend-builder
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制前端项目文件
+COPY package.json package-lock.json ./
+RUN npm install
+
+COPY src ./src
+COPY public ./public
+COPY svelte.config.js ./
+COPY vite.config.js ./
+
+# 构建前端项目
+RUN npm run build
+
+# 后端构建阶段
+FROM golang:alpine AS backend-builder
 
 # 设置工作目录
 WORKDIR /app
@@ -16,7 +34,7 @@ COPY . .
 # 构建应用
 RUN CGO_ENABLED=0 go build -o mail-push
 
-# 使用轻量级的 alpine 作为运行环境
+# 最终运行阶段
 FROM alpine:latest
 
 # 安装 ca-certificates，用于 SMTP SSL 连接
@@ -25,9 +43,9 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /app
 
 # 从构建阶段复制二进制文件和必要的文件
-COPY --from=builder /app/mail-push .
-COPY --from=builder /app/config.toml .
-COPY --from=builder /app/static ./static
+COPY --from=backend-builder /app/mail-push .
+COPY --from=backend-builder /app/config.toml .
+COPY --from=frontend-builder /app/dist ./static
 
 # 暴露端口
 EXPOSE 8080
