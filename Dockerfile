@@ -5,13 +5,8 @@ FROM node:18-alpine AS frontend-builder
 WORKDIR /app
 
 # 复制前端项目文件
-COPY package.json package-lock.json ./
+COPY . ./
 RUN npm install
-
-COPY src ./src
-COPY public ./public
-COPY svelte.config.js ./
-COPY vite.config.js ./
 
 # 构建前端项目
 RUN npm run build
@@ -45,7 +40,7 @@ WORKDIR /app
 # 从构建阶段复制二进制文件和必要的文件
 COPY --from=backend-builder /app/mail-push .
 COPY --from=backend-builder /app/config.toml .
-COPY --from=frontend-builder /app/dist ./static
+COPY --from=frontend-builder /app/.svelte-kit/output/client ./.svelte-kit/output/client
 
 # 暴露端口
 EXPOSE 8080

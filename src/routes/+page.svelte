@@ -1,9 +1,9 @@
-<script>
-  import FormInput from './components/FormInput.svelte';
-  import TabPanel from './components/TabPanel.svelte';
-  import WechatTab from './components/WechatTab.svelte';
-  import DiscordTab from './components/DiscordTab.svelte';
-  import ProjectInfo from './components/ProjectInfo.svelte';
+<script lang="ts">
+  import FormInput from '$lib/components/FormInput.svelte';
+  import TabPanel from '$lib/components/TabPanel.svelte';
+  import WechatTab from '$lib/components/WechatTab.svelte';
+  import DiscordTab from '$lib/components/DiscordTab.svelte';
+  import ProjectInfo from '$lib/components/ProjectInfo.svelte';
   
   // 状态变量
   let provider = '';
@@ -34,7 +34,7 @@
   }
   
   // 复制到剪贴板函数
-  async function copyToClipboard(text) {
+  async function copyToClipboard(text: string): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(text);
       return true;
@@ -52,7 +52,9 @@
     discordExample: '复制'
   };
   
-  async function handleCopy(type) {
+  type CopyType = 'wechat' | 'discord' | 'wechatExample' | 'discordExample';
+  
+  async function handleCopy(type: CopyType) {
     let textToCopy = '';
     let buttonType = type;
     
@@ -202,4 +204,4 @@ curl -X POST "${discordLink}" \\
     border-radius: 4px;
     background-color: #f8f9fa;
   }
-</style> 
+</style>

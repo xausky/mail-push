@@ -1,3 +1,26 @@
+node_modules
+
+# Output
+.output
+.vercel
+.netlify
+.wrangler
+/.svelte-kit
+/build
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+!.env.test
+
+# Vite
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
 # 编译生成的二进制文件
 /mail-push
 *.exe
@@ -31,9 +54,6 @@ coverage.html
 .env.local
 .env.*.local
 
-# 操作系统生成的文件
-.DS_Store
-Thumbs.db
 
 # 临时文件
 tmp/
@@ -49,5 +69,3 @@ temp/
 # 调试文件
 __debug_bin
 debug.test 
-/node_modules
-/static/build

@@ -1,58 +1,38 @@
-# Mail Push
+# sv
 
-Mail Push 是一个基于 SMTP 协议的消息推送服务，通过发送邮件到用户自己的邮箱来实现消息推送功能。它完全兼容企业微信群机器人的 webhook 格式，让你可以轻松地将企业微信机器人的消息推送到自己的邮箱。
+Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
 
-## 特性
+## Creating a project
 
-- 🚀 完全兼容企业微信群机器人的 webhook 格式
-- 📧 支持多种邮件服务商（QQ邮箱、163邮箱等）
-- 💬 支持多种消息类型（文本、Markdown、图片、图文）
-- 🔒 无需后端存储，所有认证信息编码在 URL 中
-- 🎨 优雅的 Markdown 渲染
-- 📱 支持微信 QQ 邮箱提醒，实时接收通知
-
-## 快速开始
-
-1. 访问 [Mail Push 在线服务](https://mp.xac.one)
-2. 填写邮箱服务商（如：qq）和账号信息
-3. 生成专属 Webhook 地址
-4. 使用生成的地址发送消息
-
-### 示例请求
+If you're seeing this, you've probably already done this step. Congrats!
 
 ```bash
-# 文本消息 curl 示例
-curl -X POST "https://you.deploy.domain/send/YOUR-BASE64-DATA" \
-     -H "Content-Type: application/json" \
-     -d '{
-    "msgtype": "text",
-    "text": {
-        "content": "这是一条文本消息"
-    }
-}'
+# create a new project in the current directory
+npx sv create
+
+# create a new project in my-app
+npx sv create my-app
 ```
 
-## 安全性说明
+## Developing
 
-- 所有认证信息使用 Base64 编码存储在 URL 中
-- 服务器不存储任何用户信息
-- 建议自行部署服务以确保信息安全
+Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
 
-## 技术栈
+```bash
+npm run dev
 
-- Go + Fiber：高性能 Web 框架
-- Goldmark：Markdown 渲染
-- Gomail：邮件发送
-- 前端：原生 JavaScript + HTML + CSS
+# or start the server and open the app in a new browser tab
+npm run dev -- --open
+```
 
-## 致谢
+## Building
 
-- 本项目的大部分编码工作由 [Cursor](https://cursor.sh/) 完成
+To create a production version of your app:
 
-## 开源协议
+```bash
+npm run build
+```
 
-[MIT License](LICENSE)
+You can preview the production build with `npm run preview`.
 
-## 免责声明
-
-本项目仅供学习和参考，作者不对使用本项目产生的任何后果负责。如果有高可用或者高隐私需求，请自行搭建服务。
+> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
