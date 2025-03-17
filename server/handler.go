@@ -98,3 +98,56 @@ func MailHandler(cfg *config.Config) fiber.Handler {
 		})
 	}
 }
+
+// DiscordWebhookHandler 处理 Discord webhook 请求并发送邮件
+func DiscordWebhookHandler(cfg *config.Config) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// --- Base64 参数解析 ---
+		// 从 URL Path 解码 Base64
+		data := c.Params("data")
+		decoded, err := message.Base64Decode(data)
+		if err != nil {
+			return errorResponse(c, fiber.StatusBadRequest, 40008, "invalid Base64 parameter")
+		}
+
+		// 拆分 Base64 解码后的数据；格式: provider|username|password
+		parts := strings.Split(decoded, "|")
+		if len(parts) != 3 {
+			return errorResponse(c, fiber.StatusBadRequest, 40009, "invalid parameter format, expected 'provider|username|password'")
+		}
+		provider, username, password := parts[0], parts[1], parts[2]
+
+		// 查找对应的提供商配置
+		providerCfg, err := cfg.GetProvider(provider)
+		if err != nil {
+			return errorResponse(c, fiber.StatusNotFound, 40010, fmt.Sprintf("provider '%s' not found in configuration, please contact xausky@163.com to add new provider", provider))
+		}
+
+		// 动态拼接发件人邮箱地址
+		emailAddress := username + providerCfg.EmailSuffix
+
+		// --- 解析 Discord webhook 请求 ---
+		var discordMsg message.DiscordMessage
+		if err := c.BodyParser(&discordMsg); err != nil {
+			return errorResponse(c, fiber.StatusBadRequest, 40001, "Invalid Discord webhook JSON body")
+		}
+
+		// --- HTML 内容生成 ---
+		title, content, err := discordMsg.ToHTML()
+		if err != nil {
+			return errorResponse(c, fiber.StatusInternalServerError, 40003, fmt.Sprintf("Failed to generate HTML content: %v", err))
+		}
+		content = message.WrapHTML(content)
+		title = message.StripHTML(title)
+
+		// --- 发送邮件 ---
+		m := mailer.NewMailer(providerCfg.SMTPHost, providerCfg.SMTPPort, emailAddress, password)
+		if err := m.SendEmail(emailAddress, title, content); err != nil {
+			return errorResponse(c, fiber.StatusInternalServerError, 40004, fmt.Sprintf("Failed to send email: %v", err))
+		}
+
+		// --- 成功响应 ---
+		// Discord webhook 期望返回 HTTP 204 No Content
+		return c.SendStatus(fiber.StatusNoContent)
+	}
+}
