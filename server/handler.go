@@ -86,15 +86,8 @@ func MailHandler(cfg *config.Config) fiber.Handler {
 		content = message.WrapHTML(content)
 		title = message.StripHTML(title)
 
-		// 生成消息摘要
-		summary := message.StripHTML(content)
-		if len(summary) > 100 {
-			summary = summary[:100]
-		}
-		summary = strings.ReplaceAll(summary, "\n", " ")
-
 		// 记录发送日志
-		log.Printf("Sending mail to %s, type: %s, summary: %s", emailAddress, body.MsgType, summary)
+		log.Printf("Sending wechat to %s, type: %s, title: %s", emailAddress, body.MsgType, title)
 
 		// --- 发送邮件 ---
 		m := mailer.NewMailer(providerCfg.SMTPHost, providerCfg.SMTPPort, emailAddress, password)
@@ -151,15 +144,8 @@ func DiscordWebhookHandler(cfg *config.Config) fiber.Handler {
 		content = message.WrapHTML(content)
 		title = message.StripHTML(title)
 
-		// 生成消息摘要
-		summary := message.StripHTML(content)
-		if len(summary) > 100 {
-			summary = summary[:100]
-		}
-		summary = strings.ReplaceAll(summary, "\n", " ")
-
 		// 记录发送日志
-		log.Printf("Sending discord mail to %s, summary: %s", emailAddress, summary)
+		log.Printf("Sending discord to %s, title: %s", emailAddress, title)
 
 		// --- 发送邮件 ---
 		m := mailer.NewMailer(providerCfg.SMTPHost, providerCfg.SMTPPort, emailAddress, password)
