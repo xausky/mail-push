@@ -40,7 +40,7 @@ WORKDIR /app
 # 从构建阶段复制二进制文件和必要的文件
 COPY --from=backend-builder /app/mail-push .
 COPY --from=backend-builder /app/config.toml .
-COPY --from=frontend-builder /app/build .
+COPY --from=frontend-builder /app/build ./build
 
 # 暴露端口
 EXPOSE 8080
