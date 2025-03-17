@@ -3,9 +3,35 @@ package message
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
+
+// DiscordColor 是一个自定义类型，用于处理字符串或整数类型的颜色值
+type DiscordColor int
+
+// UnmarshalJSON 实现自定义的 JSON 解析
+func (c *DiscordColor) UnmarshalJSON(data []byte) error {
+	// 移除引号
+	s := string(data)
+	s = strings.Trim(s, `"`)
+
+	// 如果是空值，设置为默认颜色
+	if s == "null" || s == "" {
+		*c = 0
+		return nil
+	}
+
+	// 尝试将字符串转换为整数
+	val, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid color value: %s", s)
+	}
+
+	*c = DiscordColor(val)
+	return nil
+}
 
 // DiscordMessage 表示 Discord webhook 消息格式
 type DiscordMessage struct {
@@ -20,7 +46,7 @@ type DiscordEmbed struct {
 	Title       string              `json:"title"`
 	Description string              `json:"description"`
 	URL         string              `json:"url"`
-	Color       int                 `json:"color"`
+	Color       DiscordColor        `json:"color"`
 	Timestamp   string              `json:"timestamp"`
 	Footer      DiscordEmbedFooter  `json:"footer"`
 	Image       DiscordEmbedImage   `json:"image"`

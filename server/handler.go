@@ -133,6 +133,7 @@ func DiscordWebhookHandler(cfg *config.Config) fiber.Handler {
 		// --- 解析 Discord webhook 请求 ---
 		var discordMsg message.DiscordMessage
 		if err := c.BodyParser(&discordMsg); err != nil {
+			log.Printf("Invalid Discord webhook JSON body: %v", err)
 			return errorResponse(c, fiber.StatusBadRequest, 40001, "Invalid Discord webhook JSON body")
 		}
 
