@@ -157,6 +157,7 @@ func FormatsHandler(cfg *config.Config) fiber.Handler {
 			formatInfo := map[string]interface{}{
 				"key":          key,
 				"name":         format.Name,
+				"example":      format.Example,
 				"document_url": format.DocumentURL,
 			}
 			formats = append(formats, formatInfo)

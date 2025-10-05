@@ -1,24 +1,44 @@
 <script lang="ts">
   import FormInput from '$lib/components/FormInput.svelte';
+  import FormSelect from '$lib/components/FormSelect.svelte';
   import TabPanel from '$lib/components/TabPanel.svelte';
-  import WechatTab from '$lib/components/WechatTab.svelte';
-  import DiscordTab from '$lib/components/DiscordTab.svelte';
+  import WebhookTab from '$lib/components/WebhookTab.svelte';
   import ProjectInfo from '$lib/components/ProjectInfo.svelte';
+  import {fetchMailProviders, fetchWebhookFormats, type MailProvider, type WebhookFormat} from '$lib/api';
+  import { onMount } from 'svelte';
   
   // 状态变量
   let provider = '';
   let mailUser = '';
   let mailToken = '';
-  let wechatLink = '';
-  let discordLink = '';
   let showResult = false;
   let activeTab = 'wechat'; // 默认显示企业微信标签页
   
-  // 标签页配置
-  const tabs = [
-    { id: 'wechat', label: '企业微信' },
-    { id: 'discord', label: 'Discord' }
-  ];
+  // 动态数据
+  let mailProviders: MailProvider[] = [];
+  let webhookFormats: WebhookFormat[] = [];
+  let tabs: any[] = [];
+  
+  // 页面加载时获取数据
+  onMount(async () => {
+    // 获取邮件服务商列表
+    mailProviders = await fetchMailProviders();
+    provider = mailProviders[0].key
+    
+    // 获取WebHook格式列表
+    webhookFormats = await fetchWebhookFormats();
+    
+    // 动态生成标签页
+    tabs = webhookFormats.map(format => ({
+      id: format.key,
+      label: format.name
+    }));
+    
+    // 设置默认激活的标签页
+    if (tabs.length > 0) {
+      activeTab = tabs[0].id;
+    }
+  });
   
   // 生成链接函数
   function generateLink() {
@@ -26,13 +46,32 @@
       alert('请填写所有字段！');
       return;
     }
+
+    // 初始化复制按钮文本
+    initCopyButtonText();
     
-    const data = btoa(`${provider}|${mailUser}|${mailToken}`);
-    wechatLink = `${window.location.origin}/send/${data}`;
-    discordLink = `${window.location.origin}/discord/${data}`;
     showResult = true;
   }
   
+  // 获取WebHook链接
+  function getWebhookLink(key: string) {
+    const data = urlSafeBase64Encode(`${provider}|${mailUser}|${mailToken}`);
+    return `${window.location.origin}/${key}/${data}`;
+  }
+
+  function urlSafeBase64Encode(str: string) {
+    // 1. 先进行标准Base64编码
+    const base64 = btoa(str);
+
+    // 2. 替换URL不安全的字符
+    const urlSafe = base64
+      .replace(/\+/g, '-')  // 将 + 替换为 -
+      .replace(/\//g, '_'); // 将 / 替换为 _
+
+    // 3. 移除填充字符 =
+    return urlSafe.replace(/=/g, '');
+  }
+
   // 复制到剪贴板函数
   async function copyToClipboard(text: string): Promise<boolean> {
     try {
@@ -45,29 +84,25 @@
   }
   
   // 处理复制按钮点击
-  let copyButtonText = {
-    wechat: '复制',
-    discord: '复制',
-    wechatExample: '复制',
-    discordExample: '复制'
-  };
+  let copyButtonText: Record<string, string> = {};
   
-  type CopyType = 'wechat' | 'discord' | 'wechatExample' | 'discordExample';
+  // 初始化复制按钮文本
+  function initCopyButtonText() {
+    webhookFormats.forEach(format => {
+      copyButtonText[format.key] = '复制';
+      copyButtonText[`${format.key}Example`] = '复制';
+    });
+  }
   
-  async function handleCopy(type: CopyType) {
+  async function handleCopy(type: string) {
     let textToCopy = '';
     let buttonType = type;
-    
-    if (type === 'wechat') {
-      textToCopy = wechatLink;
-    } else if (type === 'discord') {
-      textToCopy = discordLink;
-    } else if (type === 'wechatExample') {
-      textToCopy = getWechatCurlExample();
-      buttonType = 'wechatExample';
-    } else if (type === 'discordExample') {
-      textToCopy = getDiscordCurlExample();
-      buttonType = 'discordExample';
+
+    if (type.endsWith('Example')) {
+      const formatKey = type.replace('Example', '');
+      textToCopy = getWebhookExample(formatKey);
+    } else {
+      textToCopy = getWebhookLink(type);
     }
     
     const success = await copyToClipboard(textToCopy);
@@ -86,38 +121,31 @@
   }
 
   // 获取当前示例代码
-  function getWechatCurlExample() {
-    return `# 文本消息 curl 示例
-curl -X POST "${wechatLink}" \\
-     -H "Content-Type: application/json" \\
-     -d '{
-        "msgtype": "text",
-        "text": {
-            "content": "这是一条文本消息"
-        }
-}'`;
-  }
-
-  function getDiscordCurlExample() {
-    return `# Discord Webhook 示例
-curl -X POST "${discordLink}" \\
-     -H "Content-Type: application/json" \\
-     -d '{
-        "content": "这是一条 Discord 消息",
-        "username": "Mail Push Bot",
-        "avatar_url": "https://i.imgur.com/4M34hi2.png"
-     }'`;
+  function getWebhookExample(key: string) {
+    const format = webhookFormats.find(f => f.key === key);
+    if (!format) return '';
+    
+    // 替换示例中的占位符
+    let example = format.example;
+    const baseUrl = window.location.origin;
+    const data = urlSafeBase64Encode(`${provider}|${mailUser}|${mailToken}`);
+    
+    example = example.replace('<BASE_URL>', baseUrl);
+    example = example.replace('<BASE64_DATA>', data);
+    
+    return example;
   }
 </script>
 
 <main>
   <h1>Mail Push</h1>
   
-  <FormInput 
-    id="provider" 
-    label="邮件服务商:" 
-    bind:value={provider} 
-    placeholder="例如: 163,qq" 
+  <FormSelect
+    id="provider"
+    label="邮件服务商:"
+    bind:value={provider}
+    options={mailProviders}
+    placeholder="请选择邮件服务商"
   />
   
   <FormInput 
@@ -143,25 +171,19 @@ curl -X POST "${discordLink}" \\
   {#if showResult}
     <div id="result">
       <TabPanel tabs={tabs} bind:activeTab>
-        {#if activeTab === 'wechat'}
-          <WechatTab 
-            link={wechatLink}
-            exampleCode={getWechatCurlExample()}
-            onCopyLink={() => handleCopy('wechat')}
-            onCopyExample={() => handleCopy('wechatExample')}
-            copyLinkButtonText={copyButtonText.wechat}
-            copyExampleButtonText={copyButtonText.wechatExample}
-          />
-        {:else if activeTab === 'discord'}
-          <DiscordTab 
-            link={discordLink}
-            exampleCode={getDiscordCurlExample()}
-            onCopyLink={() => handleCopy('discord')}
-            onCopyExample={() => handleCopy('discordExample')}
-            copyLinkButtonText={copyButtonText.discord}
-            copyExampleButtonText={copyButtonText.discordExample}
-          />
-        {/if}
+        {#each webhookFormats as format}
+          {#if activeTab === format.key}
+              <WebhookTab
+                      format={format}
+                      link={getWebhookLink(format.key)}
+                      exampleCode={getWebhookExample(format.key)}
+                      onCopyLink={() => handleCopy(format.key)}
+                      onCopyExample={() => handleCopy(`${format.key}Example`)}
+                      copyLinkButtonText={copyButtonText[format.key] || '复制'}
+                      copyExampleButtonText={copyButtonText[`${format.key}Example`] || '复制'}
+              />
+          {/if}
+        {/each}
       </TabPanel>
     </div>
   {/if}

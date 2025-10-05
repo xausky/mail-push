@@ -1,11 +1,11 @@
 [providers.163]
-name = "网易 163.com"
+name = "网易 | 163.com"
 email_suffix = "@163.com"
 smtp_host = "smtp.163.com"
 smtp_port = 465
 
 [providers.qq]
-name = "QQ qq.com"
+name = "QQ | qq.com"
 email_suffix = "@qq.com"
 smtp_host = "smtp.qq.com"
 smtp_port = 465
@@ -13,7 +13,7 @@ smtp_port = 465
 # Webhook 格式配置
 [formats.send]
 name = "企业微信"
-docment_url = "https://developer.work.weixin.qq.com/document/path/91770"
+document_url = "https://developer.work.weixin.qq.com/document/path/91770"
 title_template = "{{.summary__}}" # summary__ 就是 content 渲染结果的纯本提取
 content_template = """
 {{if eq .msgtype "text"}}
@@ -47,11 +47,21 @@ response_template = """
 }
 {{end}}
 """
+example = """
+curl -X POST "<BASE_URL>/send/<BASE64_DATA>" \\
+     -H "Content-Type: application/json" \\
+     -d '{
+    "msgtype": "text",
+    "text": {
+        "content": "这是一条文本消息"
+    }
+}'
+"""
 
 # Discord 格式配置
 [formats.discord]
 name = "Discord"
-docment_url = "https://discord.com/developers/docs/resources/webhook#execute-webhook"
+document_url = "https://discord.com/developers/docs/resources/webhook#execute-webhook"
 title_template = "{{if .username}}message from {{.username}}{{else}}discord message{{end}}"
 content_template = """
 <h2>{{if .username}}message from {{.username}}{{else}}discord message{{end}}</h2>
@@ -75,4 +85,17 @@ response_template = """
   "time": "{{.time__}}"
 }
 {{end}}
+"""
+example = """
+curl -X POST "<BASE_URL>/discord/<BASE64_DATA>" \\
+     -H "Content-Type: application/json" \\
+     -d '{
+    "username": "xausky",
+    "embeds": [
+        {
+            "title": "mail-push test",
+            "description": "mail-push is mp.xa.cone"
+        }
+    ]
+}'
 """

@@ -19,7 +19,8 @@ type ProviderConfig struct {
 // FormatConfig 定义单个 webhook 格式的配置
 type FormatConfig struct {
 	Name             string `toml:"name"`
-	DocumentURL      string `toml:"docment_url"`
+	Example          string `toml:"example"`
+	DocumentURL      string `toml:"document_url"`
 	TitleTemplate    string `toml:"title_template"`
 	ContentTemplate  string `toml:"content_template"`
 	ResponseTemplate string `toml:"response_template"`

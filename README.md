@@ -45,10 +45,6 @@ curl -X POST "https://you.deploy.domain/send/YOUR-BASE64-DATA" \
 - Gomail：邮件发送
 - 前端：原生 JavaScript + HTML + CSS
 
-## 致谢
-
-- 本项目的大部分编码工作由 [Cursor](https://cursor.sh/) 完成
-
 ## 开源协议
 
 [AGPL-3.0](LICENSE)
