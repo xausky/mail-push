@@ -16,17 +16,23 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// 打印所有 providers 和 formats 信息
+	cfg.PrintProvidersAndFormats()
+
 	// 初始化 Fiber 应用
 	app := fiber.New()
 
 	// 静态文件服务
 	app.Static("/", "./build")
 
-	// 设置路由
-	app.Post("/send/:data", server.MailHandler(cfg))
+	// 动态格式 webhook 接口
+	app.Post("/:format/:data", server.FormatWebhookHandler(cfg))
 
-	// Discord webhook 兼容接口
-	app.Post("/discord/:data", server.DiscordWebhookHandler(cfg))
+	// 查询 providers 接口
+	app.Get("/providers", server.ProvidersHandler(cfg))
+
+	// 查询 formats 接口
+	app.Get("/formats", server.FormatsHandler(cfg))
 
 	// 启动服务器
 	log.Println("Server is running on port 8080")

@@ -1,14 +1,15 @@
 package server
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
-	"time"
-
 	"mail-push/config"
 	"mail-push/mailer"
 	"mail-push/message"
+	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -26,136 +27,140 @@ func GetRealIP(c *fiber.Ctx) string {
 }
 
 // 统一的错误 JSON 返回
-func errorResponse(c *fiber.Ctx, code int, errcode int, errmsg string) error {
-	ip := GetRealIP(c)
-	timestamp := fmt.Sprintf("%d", time.Now().Unix())
-	errorMsg := fmt.Sprintf("%s, hint: [%s], from ip: %s, more info at https://open.work.weixin.qq.com/devtool/query?e=%d", errmsg, timestamp, ip, errcode)
-	return c.Status(code).JSON(fiber.Map{
-		"errcode": errcode,
-		"errmsg":  errorMsg,
-	})
+func sendResponse(c *fiber.Ctx, code int, template string, error string) error {
+	dataMap := make(map[string]interface{})
+	dataMap["ip__"] = GetRealIP(c)
+	dataMap["time__"] = time.Now().Format("2006-01-02 15:04:05")
+	if error != "" {
+		dataMap["error__"] = error
+	}
+	if template == "" {
+		return c.Status(code).JSON(dataMap)
+	}
+	response, err := message.RenderTemplate(template, dataMap)
+	if err != nil {
+		dataMap["reason__"] = err.Error()
+		return c.Status(code).JSON(dataMap)
+	}
+	c.Response().Header.SetContentType("application/json")
+	return c.Status(code).SendString(response)
 }
 
-// MailHandler 处理消息并发送邮件
-func MailHandler(cfg *config.Config) fiber.Handler {
+// FormatWebhookHandler 处理动态格式的 webhook 请求并发送邮件
+func FormatWebhookHandler(cfg *config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		// 获取格式名称
+		formatName := c.Params("format")
+		if formatName == "" {
+			return sendResponse(c, fiber.StatusBadRequest, "", "format parameter is required")
+		}
+
+		// 查找对应的格式配置
+		formatCfg, err := cfg.GetFormat(formatName)
+		if err != nil {
+			return sendResponse(c, fiber.StatusNotFound, "", fmt.Sprintf("format '%s' not found in configuration", formatName))
+		}
+
 		// --- Base64 参数解析 ---
 		// 从 URL Path 解码 Base64
 		data := c.Params("data")
-		decoded, err := message.Base64Decode(data)
+		decoded, err := Base64Decode(data)
 		if err != nil {
-			return errorResponse(c, fiber.StatusBadRequest, 40008, "invalid Base64 parameter")
+			return sendResponse(c, fiber.StatusBadRequest, formatCfg.ResponseTemplate, "invalid Base64 parameter")
 		}
 
 		// 拆分 Base64 解码后的数据；格式: provider|username|password
 		parts := strings.Split(decoded, "|")
 		if len(parts) != 3 {
-			return errorResponse(c, fiber.StatusBadRequest, 40009, "invalid parameter format, expected 'provider|username|password'")
+			return sendResponse(c, fiber.StatusBadRequest, formatCfg.ResponseTemplate, "invalid parameter format, expected 'provider|username|password'")
 		}
 		provider, username, password := parts[0], parts[1], parts[2]
 
 		// 查找对应的提供商配置
 		providerCfg, err := cfg.GetProvider(provider)
 		if err != nil {
-			return errorResponse(c, fiber.StatusNotFound, 40010, fmt.Sprintf("provider '%s' not found in configuration, please contact xausky@163.com to add new provider", provider))
+			return sendResponse(c, fiber.StatusNotFound, formatCfg.ResponseTemplate, fmt.Sprintf("provider '%s' not found in configuration", provider))
 		}
 
 		// 动态拼接发件人邮箱地址
 		emailAddress := username + providerCfg.EmailSuffix
 
-		// --- 请求体解析 ---
-		// msgtype 用于区分消息类型 (text, markdown, image, news)
-		var body struct {
-			MsgType string `json:"msgtype"`
-		}
-		if err := c.BodyParser(&body); err != nil {
-			return errorResponse(c, fiber.StatusBadRequest, 40001, "Invalid JSON body")
+		// --- 解析请求体数据 ---
+		jsonData := c.Body()
+
+		// --- 使用模板渲染 HTML 内容 ---
+		// 解析 JSON 数据为 map
+		var dataMap map[string]interface{}
+		if err := json.Unmarshal(jsonData, &dataMap); err != nil {
+			return sendResponse(c, fiber.StatusBadRequest, formatCfg.ResponseTemplate, fmt.Sprintf("Invalid JSON body: %v", err))
 		}
 
-		// 使用工厂方法加载对应消息类型
-		msg, err := message.NewMessage(body.MsgType, c.Body())
+		// 使用模板渲染标题和内容
+		content, err := message.RenderTemplate(formatCfg.ContentTemplate, dataMap)
 		if err != nil {
-			return errorResponse(c, fiber.StatusBadRequest, 40002, fmt.Sprintf("Invalid message type: %v", err))
+			return sendResponse(c, fiber.StatusInternalServerError, formatCfg.ResponseTemplate, fmt.Sprintf("Failed to render content template: %v", err))
 		}
 
-		// --- HTML 内容生成 ---
-		title, content, err := msg.ToHTML()
+		dataMap["summary__"] = message.StripHTML(content)
+
+		title, err := message.RenderTemplate(formatCfg.TitleTemplate, dataMap)
 		if err != nil {
-			return errorResponse(c, fiber.StatusInternalServerError, 40003, fmt.Sprintf("Failed to generate HTML content: %v", err))
+			return sendResponse(c, fiber.StatusInternalServerError, formatCfg.ResponseTemplate, fmt.Sprintf("Failed to render title template: %v", err))
 		}
+
+		// 包装 HTML 内容
 		content = message.WrapHTML(content)
-		title = message.StripHTML(title)
 
 		// 记录发送日志
-		log.Printf("Sending wechat to %s, type: %s, title: %s", emailAddress, body.MsgType, title)
+		log.Printf("Sending format '%s' to %s, title: %s", formatName, emailAddress, title)
 
 		// --- 发送邮件 ---
 		m := mailer.NewMailer(providerCfg.SMTPHost, providerCfg.SMTPPort, emailAddress, password)
 		if err := m.SendEmail(emailAddress, title, content); err != nil {
-			return errorResponse(c, fiber.StatusInternalServerError, 40004, fmt.Sprintf("Failed to send email: %v", err))
+			return sendResponse(c, fiber.StatusInternalServerError, formatCfg.ResponseTemplate, fmt.Sprintf("Failed to send email: %v", err))
 		}
 
 		// --- 成功响应 ---
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"errcode": 0,
-			"errmsg":  "ok",
-		})
+		return sendResponse(c, fiber.StatusOK, formatCfg.ResponseTemplate, "")
 	}
 }
 
-// DiscordWebhookHandler 处理 Discord webhook 请求并发送邮件
-func DiscordWebhookHandler(cfg *config.Config) fiber.Handler {
+// Base64Decode 用于解码一个 Base64 编码的字符串
+func Base64Decode(encoded string) (string, error) {
+	// 使用标准库的 Base64 解码
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return "", fmt.Errorf("base64 decode error: %w", err)
+	}
+	return string(decoded), nil
+}
+
+// ProvidersHandler 处理查询所有 providers 的请求
+func ProvidersHandler(cfg *config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// --- Base64 参数解析 ---
-		// 从 URL Path 解码 Base64
-		data := c.Params("data")
-		decoded, err := message.Base64Decode(data)
-		if err != nil {
-			return errorResponse(c, fiber.StatusBadRequest, 40008, "invalid Base64 parameter")
+		providers := make([]map[string]interface{}, 0, len(cfg.Providers))
+		for key, provider := range cfg.Providers {
+			providers = append(providers, map[string]interface{}{
+				"key":  key,
+				"name": provider.Name,
+			})
 		}
+		return c.JSON(providers)
+	}
+}
 
-		// 拆分 Base64 解码后的数据；格式: provider|username|password
-		parts := strings.Split(decoded, "|")
-		if len(parts) != 3 {
-			return errorResponse(c, fiber.StatusBadRequest, 40009, "invalid parameter format, expected 'provider|username|password'")
+// FormatsHandler 处理查询所有 formats 的请求
+func FormatsHandler(cfg *config.Config) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		formats := make([]map[string]interface{}, 0, len(cfg.Formats))
+		for key, format := range cfg.Formats {
+			formatInfo := map[string]interface{}{
+				"key":          key,
+				"name":         format.Name,
+				"document_url": format.DocumentURL,
+			}
+			formats = append(formats, formatInfo)
 		}
-		provider, username, password := parts[0], parts[1], parts[2]
-
-		// 查找对应的提供商配置
-		providerCfg, err := cfg.GetProvider(provider)
-		if err != nil {
-			return errorResponse(c, fiber.StatusNotFound, 40010, fmt.Sprintf("provider '%s' not found in configuration, please contact xausky@163.com to add new provider", provider))
-		}
-
-		// 动态拼接发件人邮箱地址
-		emailAddress := username + providerCfg.EmailSuffix
-
-		// --- 解析 Discord webhook 请求 ---
-		var discordMsg message.DiscordMessage
-		if err := c.BodyParser(&discordMsg); err != nil {
-			log.Printf("Invalid Discord webhook JSON body: %v", err)
-			return errorResponse(c, fiber.StatusBadRequest, 40001, "Invalid Discord webhook JSON body")
-		}
-
-		// --- HTML 内容生成 ---
-		title, content, err := discordMsg.ToHTML()
-		if err != nil {
-			return errorResponse(c, fiber.StatusInternalServerError, 40003, fmt.Sprintf("Failed to generate HTML content: %v", err))
-		}
-		content = message.WrapHTML(content)
-		title = message.StripHTML(title)
-
-		// 记录发送日志
-		log.Printf("Sending discord to %s, title: %s", emailAddress, title)
-
-		// --- 发送邮件 ---
-		m := mailer.NewMailer(providerCfg.SMTPHost, providerCfg.SMTPPort, emailAddress, password)
-		if err := m.SendEmail(emailAddress, title, content); err != nil {
-			return errorResponse(c, fiber.StatusInternalServerError, 40004, fmt.Sprintf("Failed to send email: %v", err))
-		}
-
-		// --- 成功响应 ---
-		// Discord webhook 期望返回 HTTP 204 No Content
-		return c.SendStatus(fiber.StatusNoContent)
+		return c.JSON(formats)
 	}
 }
